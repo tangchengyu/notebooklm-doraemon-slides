@@ -1,0 +1,3 @@
+interface:
+  display_name: "NotebookLM 哆啦A梦论文小课堂"
+  short_description: "用 NotebookLM 将 PDF 生成漫画式演示文档并转高清长图"
