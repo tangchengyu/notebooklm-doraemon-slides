@@ -25,7 +25,11 @@ description: >
 - 知乎文章中使用的改进版提示词；
 - NotebookLM/Gemini Notebook 的生成与导出检查点；
 - `kaixindelele/pdf2longimg` 浏览器扩展安装、转换和质量验证流程；
+- Windows/macOS 浏览器自动化、权限弹窗和下载目录检查经验；
 - 失败时的重试边界。
+
+如需稳定地把导出的 PDF 转成长图，优先运行 [scripts/pdf2longimg-local-runner.js](scripts/pdf2longimg-local-runner.js)，它复用
+`pdf2longimg` 仓库中的 PDF.js 与 Canvas 拼接代码，通过 `127.0.0.1` 本地页面落盘 PNG/JPEG。
 
 ## 必要约束
 

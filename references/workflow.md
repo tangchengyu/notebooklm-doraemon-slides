@@ -66,6 +66,19 @@
 - Slide Deck 生成可能需要 5-15 分钟；只轮询状态，不要重复点击 Generate。
 - NotebookLM 的 PDF 下载可能被 Chrome 下载器或第三方下载插件接管，浏览器自动化不一定能捕获 download 事件。下载后检查系统 Downloads 目录的最新 PDF，并复制/重命名到目标输出目录。
 
+## macOS/Chrome 跑通要点
+
+在 macOS + Chrome 环境下，以下行为很常见：
+
+- 浏览器控制扩展可能需要在 `chrome://extensions` 详情页打开 `Allow access to file URLs`，否则文件上传可能被拒绝。
+- 第一次通过 ChatGPT/Codex 控制 Chrome、文件选择器或屏幕时，macOS 可能弹出自动化、屏幕录制或辅助功能权限提示。需要用户批准与当前任务直接相关的权限；不需要的应用权限不要顺手允许。
+- 系统文件选择器中，路径包含 `_`、`^`、空格或非 ASCII 字符时，AppleScript `keystroke` 可能改写字符。优先把完整路径写入剪贴板，再用 `Cmd+V` 粘贴。
+- 某些前台应用会抢焦点，导致键盘或文件选择器操作落到错误窗口。先确认 Chrome 是前台应用；必要时隐藏干扰应用。
+- NotebookLM 的 DOM、ARIA 或可见 DOM 抓取可能频繁超时。优先用截图确认页面状态，再用键盘导航或坐标点击；不要依赖大范围 DOM 遍历。
+- `System Events click at` 在 Chrome Web 内容中可能只聚焦窗口而不触发真实页面点击。若坐标点击反复无效，可使用 CoreGraphics/浏览器 CUA 等真实鼠标事件；执行前先用明显按钮校准坐标。
+- Slide Deck 生成完成后，右侧 Studio 底部会出现生成结果条目。先打开条目预览，再用顶部三点菜单选择 `Download PDF Document (.pdf)`。
+- 下载后优先检查 `~/Downloads` 中最新 PDF，因为 NotebookLM 的下载文件名可能与目标文件名不同，例如主题自动清洗后的英文名。
+
 ## NotebookLM 生成
 
 优先使用 NotebookLM/Gemini Notebook 的演示文档或 Slides 能力，而不是普通摘要报告。具体命令可能随 `notebooklm` CLI 版本变化，所以先查看 `notebooklm --help`、`notebooklm generate --help` 和 `notebooklm download --help`，再选择实际可用的子命令。
@@ -109,6 +122,19 @@
 如果 PDF 超过 50 页，优先让 NotebookLM 生成更短演示文档；如果用户坚持完整转换，分段转换后再合并长图，或在征得同意后使用本地 PDF 渲染工具降级处理。
 
 如果扩展弹窗无法被自动化、下载事件被拦截，或需要稳定落盘，可使用 `pdf2longimg` 仓库中的 `lib/pdf.min.js` 与 `lib/pdf.worker.min.js` 创建本地临时页面，通过 `127.0.0.1` 打开后执行同样的 PDF.js + Canvas 逐页渲染和纵向拼接逻辑。不要使用 `file://` 页面；浏览器控制策略可能会阻止访问。此方案仍属于 `pdf2longimg` 前端转换路径，PDF 不会上传到第三方服务。
+
+如果 Node.js 环境中可用 Playwright，优先使用本 skill 自带脚本稳定落盘：
+
+```bash
+node scripts/pdf2longimg-local-runner.js \
+  --pdf "<slides.pdf>" \
+  --out "<topic>-notebooklm-doraemon-longimg.png" \
+  --pdf2longimg-dir "<path-to-pdf2longimg>" \
+  --scale 3 \
+  --format png
+```
+
+脚本会从 `pdf2longimg` 目录复制 `lib/pdf.min.js` 和 `lib/pdf.worker.min.js` 到临时目录，启动 `127.0.0.1` 本地页面，逐页渲染并纵向拼接后下载长图。若 3x 因浏览器 Canvas 限制失败，改用 2x；若 PNG 过大，再在说明中降到 JPEG。
 
 本地临时页面应保持最小化：
 
