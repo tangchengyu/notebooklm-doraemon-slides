@@ -19,6 +19,12 @@
 
 ### 安装
 
+复制下面这一整段到 Codex 聊天框，Codex 会自动安装这个 skill：
+
+```text
+请把 https://github.com/tangchengyu/notebooklm-doraemon-slides 安装为本机 Codex skill。请克隆到默认 skills 目录，目录名使用 notebooklm-doraemon-slides；安装后运行 skill 结构校验，并告诉我最终安装路径和校验结果。
+```
+
 将本仓库克隆到你的 skills 目录：
 
 ```powershell
@@ -62,6 +68,12 @@ Workflow:
 5. Verify that the PDF and image are non-empty, correctly sized, and not error or blank outputs.
 
 ### Installation
+
+Copy this whole prompt into a Codex chat box. Codex will install the skill automatically:
+
+```text
+Please install https://github.com/tangchengyu/notebooklm-doraemon-slides as a local Codex skill. Clone it into the default skills directory using notebooklm-doraemon-slides as the folder name; after installation, run the skill structure validator and report the final install path and validation result.
+```
 
 Clone this repository into your skills directory:
 

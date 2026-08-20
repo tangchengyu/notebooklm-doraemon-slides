@@ -32,5 +32,5 @@ description: >
 - 用户必须提供一个可访问的 PDF 文件；如果对话附件没有本地路径，先请用户重新上传或提供路径。
 - 先验证 NotebookLM/Gemini Notebook 登录状态。需要 Pro/Gemini 高级能力、账号地区或网页登录时，直接说明阻塞点，不要伪造产物。
 - 优先使用本机可用的 `notebooklm` CLI；CLI 缺少演示文档生成/下载能力时，使用 Chrome/浏览器控制进入 NotebookLM 网页完成同等操作。
-- 长图转换必须优先使用 `pdf2longimg` 浏览器扩展，而不是直接用 Python、ImageMagick 或 PDF 渲染库替代。只有扩展无法安装或无法自动操作，并且用户同意降级时，才使用本地渲染作为 fallback。
+- 长图转换必须优先使用 `pdf2longimg` 浏览器扩展或其仓库中的 PDF.js + Canvas 拼接代码，而不是直接用 Python、ImageMagick 或其他 PDF 渲染库替代。只有扩展/仓库代码都无法使用，并且用户同意降级时，才使用其他本地渲染作为 fallback。
 - 对 PDF、下载目录、浏览器下载文件做非空校验；长图还要确认尺寸合理，不要把失败页、空白图或低清截图当成结果。

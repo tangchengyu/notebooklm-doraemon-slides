@@ -38,12 +38,14 @@
    ```
 
    如果认证失败、超时、跳转登录或提示地区/权限不可用，停止并请用户完成 NotebookLM 登录或 Pro/Gemini 权限确认。
+   如果 `doctor` 通过但 `list/create` 被重定向到 `https://notebook.google/` 或出现 `CSRF token not found in HTML`，这是 CLI 访问主机/地区路由问题；改用已登录的 Chrome 访问 `https://notebook.google.com/`，不要继续反复重试 CLI。
 
 3. 如果 CLI 不支持演示文档生成和 PDF 下载，使用浏览器控制：
 
    - 优先通过 `tool_search` 查找 Chrome 或 in-app Browser 控制工具；
-   - 打开 `https://notebooklm.google.com/`；
+   - 优先打开 `https://notebook.google.com/`；若不可用，再尝试 `https://notebooklm.google.com/`；
    - 使用已登录账号创建 notebook、上传 PDF、生成演示文档、导出 PDF。
+   - 在 Windows Chrome 中，如果自动文件上传返回 `Not allowed`，让用户在 `chrome://extensions` 里打开浏览器控制扩展的 `Allow access to file URLs`，然后重试；或者让用户在当前 NotebookLM 页面手动上传 PDF 后继续。
 
 4. 检查 `pdf2longimg` 扩展是否可用。若未安装，优先使用 GitHub 仓库加载未打包扩展：
 
@@ -52,6 +54,17 @@
    ```
 
    然后在 Chrome/Edge 扩展页开启开发者模式并加载该文件夹。需要用户手动确认浏览器安全提示时，停下来让用户操作。
+
+## Windows/Chrome 跑通要点
+
+在 Windows + Chrome 环境下，以下行为很常见：
+
+- Chrome 127+ 的 App-Bound Encryption 可能导致 `notebooklm login --browser-cookies chrome` 无法读取 Chrome cookie。浏览器网页登录可用时，直接使用 Chrome 页面工作流。
+- NotebookLM 页面可能显示为 `notebook.google.com`，而不是旧的 `notebooklm.google.com`。以实际可用页面为准。
+- “Add sources” 顶部按钮有时不会打开文件选择器；空 notebook 中间区域的 `add a source` 按钮会打开包含 `Upload files` 的来源弹窗。
+- 上传完成后等待左侧来源的 `progressbar` 消失，再生成 Slide Deck。
+- Slide Deck 生成可能需要 5-15 分钟；只轮询状态，不要重复点击 Generate。
+- NotebookLM 的 PDF 下载可能被 Chrome 下载器或第三方下载插件接管，浏览器自动化不一定能捕获 download 事件。下载后检查系统 Downloads 目录的最新 PDF，并复制/重命名到目标输出目录。
 
 ## NotebookLM 生成
 
@@ -94,6 +107,17 @@
 5. 下载长图并移动/重命名到目标输出路径。
 
 如果 PDF 超过 50 页，优先让 NotebookLM 生成更短演示文档；如果用户坚持完整转换，分段转换后再合并长图，或在征得同意后使用本地 PDF 渲染工具降级处理。
+
+如果扩展弹窗无法被自动化、下载事件被拦截，或需要稳定落盘，可使用 `pdf2longimg` 仓库中的 `lib/pdf.min.js` 与 `lib/pdf.worker.min.js` 创建本地临时页面，通过 `127.0.0.1` 打开后执行同样的 PDF.js + Canvas 逐页渲染和纵向拼接逻辑。不要使用 `file://` 页面；浏览器控制策略可能会阻止访问。此方案仍属于 `pdf2longimg` 前端转换路径，PDF 不会上传到第三方服务。
+
+本地临时页面应保持最小化：
+
+- `<input type="file" accept="application/pdf">`
+- 格式选择：PNG/JPEG；
+- 倍率选择：1x/2x/3x；
+- 逐页 `getPage(i)`、`page.render(...)` 到 canvas；
+- 将页面 canvas 纵向绘制到最终 canvas；
+- 用 `toBlob` 生成文件并提供下载链接。
 
 ## 长图验证
 
