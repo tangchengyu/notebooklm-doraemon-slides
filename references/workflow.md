@@ -4,10 +4,13 @@
 
 - 知乎文章：`https://zhuanlan.zhihu.com/p/1975730596534830124`
 - PDF 转长图扩展：`https://github.com/kaixindelele/pdf2longimg`
+- NotebookLM 后台 CLI：`https://github.com/teng-lin/notebooklm-py`
 
 知乎文章的核心方法是：上传一篇论文 PDF 到 NotebookLM/Gemini Notebook，使用一个极短提示词生成漫画风格的论文小课堂演示文档。文章明确建议使用“改进版”提示词，并提醒中文文字正确性是关键。
 
 `pdf2longimg` 是一个本地 Chrome/Edge 扩展，用 PDF.js 解析 PDF、Canvas 拼接成长图，支持 PNG/JPEG 和 1x-3x 清晰度。README 建议页数过多或倍率过高时注意文件大小，单次转换建议不超过 50 页，推荐 2.0x 作为清晰度和体积的平衡。
+
+`notebooklm-py` 是非官方 NotebookLM Python/CLI 客户端。实测 `0.8.1` 支持创建 notebook、上传文件、`generate slide-deck`、`download slide-deck`，适合在 macOS 上避开前台 Chrome 自动化。它的认证文件和 master token 都等同登录凭据，必须留在本机用户目录，不要读取、展示或提交。
 
 ## 输入与输出
 
@@ -32,13 +35,25 @@
 1. 定位 PDF 文件，验证它存在、扩展名为 `.pdf`、文件大小非零。必要时用本机可用工具读取页数。
 2. 检查 `notebooklm` CLI：
 
-   ```powershell
-   notebooklm list --json
+   ```bash
    notebooklm --help
+   notebooklm generate slide-deck --help
+   notebooklm download slide-deck --help
+   notebooklm auth check --test --passive --json
    ```
 
+   如果 CLI 支持 `generate slide-deck` / `download slide-deck`，优先走后台 CLI 路径。
+   如果认证文件不存在，只有在用户明确同意后才运行浏览器 cookie 导入，例如：
+
+   ```bash
+   notebooklm -p codex-bg login --browser-cookies chrome
+   notebooklm -p codex-bg auth check --test --passive --json
+   ```
+
+   在 macOS 上，导入 Chrome cookie 可能触发钥匙串权限弹窗；需要用户批准这一次解密。不要打印或复制
+   `~/.notebooklm/profiles/*/storage_state.json`、master token 或 cookie 内容。
    如果认证失败、超时、跳转登录或提示地区/权限不可用，停止并请用户完成 NotebookLM 登录或 Pro/Gemini 权限确认。
-   如果 `doctor` 通过但 `list/create` 被重定向到 `https://notebook.google/` 或出现 `CSRF token not found in HTML`，这是 CLI 访问主机/地区路由问题；改用已登录的 Chrome 访问 `https://notebook.google.com/`，不要继续反复重试 CLI。
+   如果旧 CLI 被重定向到 `https://notebook.google/` 或出现 `CSRF token not found in HTML`，这是 CLI 访问主机/地区路由问题；升级或改用已登录的 Chrome 访问 `https://notebook.google.com/`，不要继续反复重试旧 CLI。
 
 3. 如果 CLI 不支持演示文档生成和 PDF 下载，使用浏览器控制：
 
@@ -49,11 +64,51 @@
 
 4. 检查 `pdf2longimg` 扩展是否可用。若未安装，优先使用 GitHub 仓库加载未打包扩展：
 
-   ```powershell
-   git clone https://github.com/kaixindelele/pdf2longimg "<workspace>\work\vendor\pdf2longimg"
+   ```bash
+   git clone https://github.com/kaixindelele/pdf2longimg "<workspace>/work/vendor/pdf2longimg"
    ```
 
    然后在 Chrome/Edge 扩展页开启开发者模式并加载该文件夹。需要用户手动确认浏览器安全提示时，停下来让用户操作。
+
+## notebooklm-py 后台流程
+
+macOS 上首选这条路径；除首次导入 Chrome cookie 可能需要钥匙串授权外，创建、上传、生成、下载都可在后台终端完成，不需要占用用户前台浏览器。
+
+如果 skill 自带 runner 可用，使用：
+
+```bash
+node scripts/notebooklm-py-background-runner.js \
+  --pdf "<input.pdf>" \
+  --out-dir "<outputs>" \
+  --topic "<topic>" \
+  --profile codex-bg \
+  --notebooklm-bin notebooklm \
+  --pdf2longimg-dir "<path-to-pdf2longimg>" \
+  --longimg-out "<topic>-notebooklm-doraemon-longimg.png" \
+  --language zh_Hans \
+  --timeout 1800 \
+  --interval 10 \
+  --scale 3 \
+  --format png
+```
+
+手动命令等价流程：
+
+```bash
+notebooklm -p codex-bg create "<topic> 论文小课堂" --json
+notebooklm -p codex-bg source add "<input.pdf>" -n "<notebook-id>" --type file --title "<topic>" --request-timeout 180 --json
+notebooklm -p codex-bg generate slide-deck -n "<notebook-id>" --prompt-file "<prompt.txt>" --format detailed --length default --language zh_Hans --wait --timeout 1800 --interval 10 --json
+notebooklm -p codex-bg download slide-deck -n "<notebook-id>" "<slides.pdf>" --format pdf --latest --force --json
+```
+
+实测要点：
+
+- `zh_Hans` 是简体中文语言码；不要假设 `zh` 可用。
+- Slide Deck 生成常见耗时约 10-25 分钟；用 `--wait --timeout 1800 --interval 10` 轮询即可，不要重复触发生成。
+- 若等待命令超时，先用 `download slide-deck --dry-run` 或 `download slide-deck --latest` 查已有 artifact；确认没有结果后再决定是否重试生成。
+- `auth check --test --passive --json` 可做后台健康检查；`--passive` 不刷新或改写认证文件，适合任务开始前探测。
+- 用独立 profile，例如 `codex-bg`，可以避免污染用户默认 `notebooklm-py` 上下文。
+- 如果要真正长期无人值守，`notebooklm-py` 还支持 master-token 认证；这同样是敏感凭据，只能在用户明确授权并理解风险后配置。
 
 ## Windows/Chrome 跑通要点
 
@@ -63,7 +118,7 @@
 - NotebookLM 页面可能显示为 `notebook.google.com`，而不是旧的 `notebooklm.google.com`。以实际可用页面为准。
 - “Add sources” 顶部按钮有时不会打开文件选择器；空 notebook 中间区域的 `add a source` 按钮会打开包含 `Upload files` 的来源弹窗。
 - 上传完成后等待左侧来源的 `progressbar` 消失，再生成 Slide Deck。
-- Slide Deck 生成可能需要 5-15 分钟；只轮询状态，不要重复点击 Generate。
+- Slide Deck 生成可能需要 10-25 分钟；只轮询状态，不要重复点击 Generate。
 - NotebookLM 的 PDF 下载可能被 Chrome 下载器或第三方下载插件接管，浏览器自动化不一定能捕获 download 事件。下载后检查系统 Downloads 目录的最新 PDF，并复制/重命名到目标输出目录。
 
 ## macOS/Chrome 跑通要点
@@ -81,7 +136,7 @@
 
 ## NotebookLM 生成
 
-优先使用 NotebookLM/Gemini Notebook 的演示文档或 Slides 能力，而不是普通摘要报告。具体命令可能随 `notebooklm` CLI 版本变化，所以先查看 `notebooklm --help`、`notebooklm generate --help` 和 `notebooklm download --help`，再选择实际可用的子命令。
+优先使用 NotebookLM/Gemini Notebook 的演示文档或 Slides 能力，而不是普通摘要报告。具体命令可能随 `notebooklm` CLI 版本变化，所以先查看 `notebooklm --help`、`notebooklm generate slide-deck --help` 和 `notebooklm download slide-deck --help`，再选择实际可用的子命令。
 
 典型流程：
 
@@ -93,7 +148,7 @@
    参考《哆啦A梦》的漫画风格，绘制哆啦A梦教大雄学习这篇论文的核心内容，中文对白，彩色画面，特别注意中文文字生成的正确性。
    ```
 
-4. 等待生成完成。文章经验是十几分钟左右；实际执行时可设置 10-20 分钟等待窗口。
+4. 等待生成完成。文章经验和实测都可能到十几分钟以上；实际执行时设置 30 分钟等待窗口。
 5. 导出 PDF 演示文档并保存为目标文件名。
 
 如果用户提出公开发布、商业使用或规避版权风险，把提示词调整为“蓝白配色、未来道具、儿童科普漫画课堂风格的原创角色”，不要使用受保护角色名称。
