@@ -42,7 +42,7 @@
    notebooklm auth check --test --passive --json
    ```
 
-   如果 CLI 支持 `generate slide-deck` / `download slide-deck`，优先走后台 CLI 路径。
+   如果 CLI 支持 `generate slide-deck` / `download slide-deck`，按系统选择默认路径：macOS 优先走后台 CLI；Windows 默认走 Chrome 页面流程，除非 `auth check --test --passive --json` 已经通过。
    如果认证文件不存在，只有在用户明确同意后才运行浏览器 cookie 导入，例如：
 
    ```bash
@@ -50,7 +50,7 @@
    notebooklm -p codex-bg auth check --test --passive --json
    ```
 
-   在 macOS 上，导入 Chrome cookie 可能触发钥匙串权限弹窗；需要用户批准这一次解密。不要打印或复制
+   在 macOS 上，导入 Chrome cookie 可能触发钥匙串权限弹窗；需要用户批准这一次解密。Windows Chrome 127+ 常因 App-Bound Encryption 让 `--browser-cookies chrome` 失败；不要在 Windows 上反复尝试 cookie 导入，直接使用浏览器页面流程，或在用户明确要求时配置 `notebooklm-py` master-token。不要打印或复制
    `~/.notebooklm/profiles/*/storage_state.json`、master token 或 cookie 内容。
    如果认证失败、超时、跳转登录或提示地区/权限不可用，停止并请用户完成 NotebookLM 登录或 Pro/Gemini 权限确认。
    如果旧 CLI 被重定向到 `https://notebook.google/` 或出现 `CSRF token not found in HTML`，这是 CLI 访问主机/地区路由问题；升级或改用已登录的 Chrome 访问 `https://notebook.google.com/`，不要继续反复重试旧 CLI。
@@ -72,7 +72,7 @@
 
 ## notebooklm-py 后台流程
 
-macOS 上首选这条路径；除首次导入 Chrome cookie 可能需要钥匙串授权外，创建、上传、生成、下载都可在后台终端完成，不需要占用用户前台浏览器。
+macOS 上首选这条路径；除首次导入 Chrome cookie 可能需要钥匙串授权外，创建、上传、生成、下载都可在后台终端完成，不需要占用用户前台浏览器。Windows 上不要把这条路径作为默认方案，因为 CLI 往往拿不到 Chrome cookie；只有已经存在可用 `notebooklm-py` 登录态或用户明确配置 master-token 时才使用。
 
 如果 skill 自带 runner 可用，使用：
 
@@ -108,6 +108,7 @@ notebooklm -p codex-bg download slide-deck -n "<notebook-id>" "<slides.pdf>" --f
 - 若等待命令超时，先用 `download slide-deck --dry-run` 或 `download slide-deck --latest` 查已有 artifact；确认没有结果后再决定是否重试生成。
 - `auth check --test --passive --json` 可做后台健康检查；`--passive` 不刷新或改写认证文件，适合任务开始前探测。
 - 用独立 profile，例如 `codex-bg`，可以避免污染用户默认 `notebooklm-py` 上下文。
+- Windows 上如果 `login --browser-cookies chrome` 因 Chrome 加密失败，不要阻塞任务；切回原浏览器工作流。
 - 如果要真正长期无人值守，`notebooklm-py` 还支持 master-token 认证；这同样是敏感凭据，只能在用户明确授权并理解风险后配置。
 
 ## Windows/Chrome 跑通要点

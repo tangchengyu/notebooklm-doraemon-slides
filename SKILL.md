@@ -39,7 +39,7 @@ description: >
 
 - 用户必须提供一个可访问的 PDF 文件；如果对话附件没有本地路径，先请用户重新上传或提供路径。
 - 先验证 NotebookLM/Gemini Notebook 登录状态。需要 Pro/Gemini 高级能力、账号地区或网页登录时，直接说明阻塞点，不要伪造产物。
-- 优先使用本机可用且支持 `generate slide-deck` / `download slide-deck` 的 `notebooklm-py` CLI 后台流程；CLI 缺少演示文档生成/下载能力或认证不可用时，使用 Chrome/浏览器控制进入 NotebookLM 网页完成同等操作。
+- macOS 上优先使用本机可用且支持 `generate slide-deck` / `download slide-deck` 的 `notebooklm-py` CLI 后台流程；Windows 上默认沿用 Chrome/浏览器页面流程，因为 Chrome cookie 常被系统加密机制阻止 CLI 读取。只有 Windows 上已有可通过 `auth check` 的 CLI 登录态或用户明确配置 master-token 时，才使用后台 CLI。
 - `~/.notebooklm/profiles/*/storage_state.json`、master token 和浏览器 cookie 是 bearer credentials；只有用户明确同意时才从浏览器导入，不要读取、打印、复制到仓库或放入输出产物。
 - 长图转换必须优先使用 `pdf2longimg` 浏览器扩展或其仓库中的 PDF.js + Canvas 拼接代码，而不是直接用 Python、ImageMagick 或其他 PDF 渲染库替代。只有扩展/仓库代码都无法使用，并且用户同意降级时，才使用其他本地渲染作为 fallback。
 - 对 PDF、下载目录、浏览器下载文件做非空校验；长图还要确认尺寸合理，不要把失败页、空白图或低清截图当成结果。
