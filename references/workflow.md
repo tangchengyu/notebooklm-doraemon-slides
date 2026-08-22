@@ -42,7 +42,7 @@
    notebooklm auth check --test --passive --json
    ```
 
-   如果 CLI 支持 `generate slide-deck` / `download slide-deck`，按系统选择默认路径：macOS 优先走后台 CLI；Windows 默认走 Chrome 页面流程，除非 `auth check --test --passive --json` 已经通过。
+   如果 CLI 支持 `generate slide-deck` / `download slide-deck`，按认证状态选择默认路径：macOS 优先走后台 CLI；Windows 也先检查 CLI 登录态，若 `auth check --test --passive --json` 返回 `status=ok` 且 `checks.token_fetch=true`，直接走后台 CLI。只有 Windows 上认证失败、地区门禁、Chrome cookie 无法导入且没有可用 CLI 登录态时，才切回 Playwright MCP / Chrome 页面流程。
    如果认证文件不存在，只有在用户明确同意后才运行浏览器 cookie 导入，例如：
 
    ```bash
@@ -50,17 +50,19 @@
    notebooklm -p codex-bg auth check --test --passive --json
    ```
 
-   在 macOS 上，导入 Chrome cookie 可能触发钥匙串权限弹窗；需要用户批准这一次解密。Windows Chrome 127+ 常因 App-Bound Encryption 让 `--browser-cookies chrome` 失败；不要在 Windows 上反复尝试 cookie 导入，直接使用浏览器页面流程，或在用户明确要求时配置 `notebooklm-py` master-token。不要打印或复制
+   在 macOS 上，导入 Chrome cookie 可能触发钥匙串权限弹窗；需要用户批准这一次解密。Windows Chrome 127+ 常因 App-Bound Encryption 让 `--browser-cookies chrome` 失败；不要在 Windows 上反复尝试 Chrome cookie 导入。可先尝试 Firefox/已配置 profile，或使用已经通过 `auth check --test` 的默认 profile。仍失败时再使用浏览器页面流程，或在用户明确要求时配置 `notebooklm-py` master-token。不要打印或复制
    `~/.notebooklm/profiles/*/storage_state.json`、master token 或 cookie 内容。
    如果认证失败、超时、跳转登录或提示地区/权限不可用，停止并请用户完成 NotebookLM 登录或 Pro/Gemini 权限确认。
    如果旧 CLI 被重定向到 `https://notebook.google/` 或出现 `CSRF token not found in HTML`，这是 CLI 访问主机/地区路由问题；升级或改用已登录的 Chrome 访问 `https://notebook.google.com/`，不要继续反复重试旧 CLI。
 
 3. 如果 CLI 不支持演示文档生成和 PDF 下载，使用浏览器控制：
 
+   - 优先使用 Playwright MCP 或已连接的 Chrome 控制当前已登录 NotebookLM 页面；
    - 优先通过 `tool_search` 查找 Chrome 或 in-app Browser 控制工具；
    - 优先打开 `https://notebook.google.com/`；若不可用，再尝试 `https://notebooklm.google.com/`；
    - 使用已登录账号创建 notebook、上传 PDF、生成演示文档、导出 PDF。
    - 在 Windows Chrome 中，如果自动文件上传返回 `Not allowed`，让用户在 `chrome://extensions` 里打开浏览器控制扩展的 `Allow access to file URLs`，然后重试；或者让用户在当前 NotebookLM 页面手动上传 PDF 后继续。
+   - 不优先使用 `notebooklm login --fresh --browser chrome` 打开的隔离窗口；它通常不继承用户日常 Chrome 的 Cookie、VPN、代理和扩展状态。
 
 4. 检查 `pdf2longimg` 扩展是否可用。若未安装，优先使用 GitHub 仓库加载未打包扩展：
 
@@ -68,11 +70,19 @@
    git clone https://github.com/kaixindelele/pdf2longimg "<workspace>/work/vendor/pdf2longimg"
    ```
 
+   如果 `git clone` 因 GitHub 连接重置或超时失败，可下载 codeload zip 后解压：
+
+   ```powershell
+   curl.exe -L -o "<workspace>\work\vendor\pdf2longimg.zip" "https://codeload.github.com/kaixindelele/pdf2longimg/zip/refs/heads/main"
+   Expand-Archive "<workspace>\work\vendor\pdf2longimg.zip" "<workspace>\work\vendor\pdf2longimg-unzip" -Force
+   Move-Item "<workspace>\work\vendor\pdf2longimg-unzip\pdf2longimg-main" "<workspace>\work\vendor\pdf2longimg"
+   ```
+
    然后在 Chrome/Edge 扩展页开启开发者模式并加载该文件夹。需要用户手动确认浏览器安全提示时，停下来让用户操作。
 
 ## notebooklm-py 后台流程
 
-macOS 上首选这条路径；除首次导入 Chrome cookie 可能需要钥匙串授权外，创建、上传、生成、下载都可在后台终端完成，不需要占用用户前台浏览器。Windows 上不要把这条路径作为默认方案，因为 CLI 往往拿不到 Chrome cookie；只有已经存在可用 `notebooklm-py` 登录态或用户明确配置 master-token 时才使用。
+macOS 上首选这条路径；除首次导入 Chrome cookie 可能需要钥匙串授权外，创建、上传、生成、下载都可在后台终端完成，不需要占用用户前台浏览器。Windows 上不要因为 Chrome cookie 导入失败就放弃后台路径。先运行 `notebooklm auth check --test --passive --json`；若已经存在可用 `notebooklm-py` 登录态，Windows 也可以全程后台完成创建、上传、生成、下载和本地长图转换。
 
 如果 skill 自带 runner 可用，使用：
 
@@ -88,6 +98,8 @@ node scripts/notebooklm-py-background-runner.js \
   --language zh_Hans \
   --timeout 1800 \
   --interval 10 \
+  --source-wait-timeout 300 \
+  --source-wait-interval 2 \
   --scale 3 \
   --format png
 ```
@@ -97,6 +109,7 @@ node scripts/notebooklm-py-background-runner.js \
 ```bash
 notebooklm -p codex-bg create "<topic> 论文小课堂" --json
 notebooklm -p codex-bg source add "<input.pdf>" -n "<notebook-id>" --type file --title "<topic>" --request-timeout 180 --json
+notebooklm -p codex-bg source wait "<source-id>" -n "<notebook-id>" --timeout 300 --interval 2 --json
 notebooklm -p codex-bg generate slide-deck -n "<notebook-id>" --prompt-file "<prompt.txt>" --format detailed --length default --language zh_Hans --wait --timeout 1800 --interval 10 --json
 notebooklm -p codex-bg download slide-deck -n "<notebook-id>" "<slides.pdf>" --format pdf --latest --force --json
 ```
@@ -107,6 +120,7 @@ notebooklm -p codex-bg download slide-deck -n "<notebook-id>" "<slides.pdf>" --f
 - Slide Deck 生成常见耗时约 10-25 分钟；用 `--wait --timeout 1800 --interval 10` 轮询即可，不要重复触发生成。
 - 若等待命令超时，先用 `download slide-deck --dry-run` 或 `download slide-deck --latest` 查已有 artifact；确认没有结果后再决定是否重试生成。
 - `auth check --test --passive --json` 可做后台健康检查；`--passive` 不刷新或改写认证文件，适合任务开始前探测。
+- `source add` 成功不代表 PDF 已完成 NotebookLM 索引；必须对返回的 source id 运行 `source wait`。否则 `generate slide-deck` 可能很快失败并返回 `RPC CREATE_ARTIFACT rpc_code=3`。
 - 用独立 profile，例如 `codex-bg`，可以避免污染用户默认 `notebooklm-py` 上下文。
 - Windows 上如果 `login --browser-cookies chrome` 因 Chrome 加密失败，不要阻塞任务；切回原浏览器工作流。
 - 如果要真正长期无人值守，`notebooklm-py` 还支持 master-token 认证；这同样是敏感凭据，只能在用户明确授权并理解风险后配置。
@@ -116,6 +130,8 @@ notebooklm -p codex-bg download slide-deck -n "<notebook-id>" "<slides.pdf>" --f
 在 Windows + Chrome 环境下，以下行为很常见：
 
 - Chrome 127+ 的 App-Bound Encryption 可能导致 `notebooklm login --browser-cookies chrome` 无法读取 Chrome cookie。浏览器网页登录可用时，直接使用 Chrome 页面工作流。
+- 已验证可用的 `notebooklm-py` 登录态优先于页面自动化；页面自动化只用于 CLI 认证或功能不可用时的回退。
+- 使用 Playwright MCP 控制当前已登录 Chrome/NotebookLM 页面时，不读取或打印 Cookie/localStorage，只通过页面交互完成上传、生成和下载。
 - NotebookLM 页面可能显示为 `notebook.google.com`，而不是旧的 `notebooklm.google.com`。以实际可用页面为准。
 - “Add sources” 顶部按钮有时不会打开文件选择器；空 notebook 中间区域的 `add a source` 按钮会打开包含 `Upload files` 的来源弹窗。
 - 上传完成后等待左侧来源的 `progressbar` 消失，再生成 Slide Deck。
@@ -127,7 +143,7 @@ notebooklm -p codex-bg download slide-deck -n "<notebook-id>" "<slides.pdf>" --f
 在 macOS + Chrome 环境下，以下行为很常见：
 
 - 浏览器控制扩展可能需要在 `chrome://extensions` 详情页打开 `Allow access to file URLs`，否则文件上传可能被拒绝。
-- 第一次通过 ChatGPT/Codex 控制 Chrome、文件选择器或屏幕时，macOS 可能弹出自动化、屏幕录制或辅助功能权限提示。需要用户批准与当前任务直接相关的权限；不需要的应用权限不要顺手允许。
+- 第一次通过浏览器控制工具操作 Chrome、文件选择器或屏幕时，macOS 可能弹出自动化、屏幕录制或辅助功能权限提示。需要用户批准与当前任务直接相关的权限；不需要的应用权限不要顺手允许。
 - 系统文件选择器中，路径包含 `_`、`^`、空格或非 ASCII 字符时，AppleScript `keystroke` 可能改写字符。优先把完整路径写入剪贴板，再用 `Cmd+V` 粘贴。
 - 某些前台应用会抢焦点，导致键盘或文件选择器操作落到错误窗口。先确认 Chrome 是前台应用；必要时隐藏干扰应用。
 - NotebookLM 的 DOM、ARIA 或可见 DOM 抓取可能频繁超时。优先用截图确认页面状态，再用键盘导航或坐标点击；不要依赖大范围 DOM 遍历。
@@ -191,6 +207,13 @@ node scripts/pdf2longimg-local-runner.js \
 ```
 
 脚本会从 `pdf2longimg` 目录复制 `lib/pdf.min.js` 和 `lib/pdf.worker.min.js` 到临时目录，启动 `127.0.0.1` 本地页面，逐页渲染并纵向拼接后下载长图。若 3x 因浏览器 Canvas 限制失败，改用 2x；若 PNG 过大，再在说明中降到 JPEG。
+
+在 Codex desktop bundled runtime 中，若普通 `node` 找不到 `playwright`，使用 bundled Node 并设置 `NODE_PATH`：
+
+```powershell
+$env:NODE_PATH="C:\Users\DELL\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\node_modules"
+& "C:\Users\DELL\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe" scripts\pdf2longimg-local-runner.js ...
+```
 
 本地临时页面应保持最小化：
 

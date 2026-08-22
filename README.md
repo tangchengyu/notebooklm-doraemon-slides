@@ -11,7 +11,7 @@
 
 工作流：
 
-1. 将用户提供的 PDF 上传到 NotebookLM/Gemini Notebook。
+1. 优先通过 `notebooklm` 后台 CLI 创建 Notebook 并上传用户提供的 PDF；CLI 不可用时再回退到 Playwright MCP / 浏览器页面流程。
 2. 使用改进版中文提示词生成哆啦A梦论文小课堂风格的 Slide Deck。
 3. 导出 NotebookLM 生成的 PDF 演示文档。
 4. 使用 `pdf2longimg` 的 PDF.js + Canvas 拼接流程，把 PDF 转成高清长图。
@@ -47,7 +47,7 @@ $notebooklm-doraemon-slides
 ### 依赖
 
 - NotebookLM/Gemini Notebook 可用账号，通常需要 Pro 权限。
-- 本地可用的 `notebooklm` CLI，或可操作的浏览器会话。
+- 本地可用的 `notebooklm` CLI。`notebooklm auth check --test --passive --json` 通过时优先后台运行；Playwright MCP / 浏览器页面流程只作为回退。
 - Chrome/Edge 浏览器。
 - `pdf2longimg` 浏览器扩展或其本地 PDF.js + Canvas 拼接代码。
 
@@ -61,7 +61,7 @@ This is a Codex Skill for turning a paper or reference PDF into a Chinese comic-
 
 Workflow:
 
-1. Upload the provided PDF to NotebookLM/Gemini Notebook.
+1. Prefer the background `notebooklm` CLI to create the Notebook and upload the provided PDF; fall back to Playwright MCP / browser page control only when the CLI path is unavailable.
 2. Generate a Doraemon-style paper classroom Slide Deck with the improved Chinese prompt.
 3. Export the generated NotebookLM deck as PDF.
 4. Convert the PDF into a high-resolution long image with the `pdf2longimg` PDF.js + Canvas stitching workflow.
@@ -97,7 +97,7 @@ Default outputs:
 ### Requirements
 
 - A NotebookLM/Gemini Notebook account with the required generation capability, commonly Pro.
-- A working local `notebooklm` CLI, or an automatable browser session.
+- A working local `notebooklm` CLI. When `notebooklm auth check --test --passive --json` succeeds, the workflow prefers background execution; Playwright MCP / browser page control is a fallback.
 - Chrome or Edge.
 - The `pdf2longimg` browser extension or its local PDF.js + Canvas stitching code.
 

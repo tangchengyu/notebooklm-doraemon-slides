@@ -46,6 +46,8 @@ function usage() {
     "  --language CODE               NotebookLM language code (default: zh_Hans)",
     "  --timeout SECONDS             slide generation timeout (default: 1800)",
     "  --interval SECONDS            polling interval (default: 10)",
+    "  --source-wait-timeout SECONDS source processing timeout (default: 300)",
+    "  --source-wait-interval SECONDS source polling interval (default: 2)",
     "  --pdf-out PATH                output PDF path",
     "  --longimg-out PATH            optional long-image output path",
     "  --pdf2longimg-dir DIR         required with --longimg-out",
@@ -105,6 +107,16 @@ function runPlain(bin, args, label, options = {}) {
     throw new Error(`${label} failed (${result.status}): ${stderr || stdout || "no output"}`);
   }
   return (result.stdout || "").trim();
+}
+
+function extractSourceId(sourceResult) {
+  const candidates = [
+    sourceResult && sourceResult.source && sourceResult.source.id,
+    sourceResult && sourceResult.id,
+    sourceResult && sourceResult.source_id,
+    sourceResult && sourceResult.sourceId
+  ];
+  return candidates.find(Boolean);
 }
 
 function writePromptFile(args) {
@@ -175,6 +187,24 @@ async function main() {
       "--json"
     ]),
     "add source"
+  );
+  const sourceId = extractSourceId(source);
+  if (!sourceId) throw new Error("add source returned no source id");
+  runJson(
+    notebooklmBin,
+    notebooklmArgs(profile, [
+      "source",
+      "wait",
+      sourceId,
+      "-n",
+      notebookId,
+      "--timeout",
+      args["source-wait-timeout"] || "300",
+      "--interval",
+      args["source-wait-interval"] || "2",
+      "--json"
+    ]),
+    "wait source"
   );
 
   const generated = runJson(
